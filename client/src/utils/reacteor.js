@@ -17,12 +17,32 @@ export function createReacteor(opt = {}) {
 
   reacteor.createModels = function(...models) {
     let app = models.shift();
-    models.map(m => {
+    // models.unshift('@@meteor');
+    models.map((m,i) => {
       let model = {
         namespace: m,
         state: {
           data: [],
           query: []
+        },
+        effects: {
+          *'@getAll'(action,{put}){
+            let data = yield reacteor.call('getAll', m);
+            yield put({type: '@getAllAsync', data});
+          },
+          *'@find'({query},{put}){
+            let data = yield reacteor.call('find', m, query);
+            yield put({type: '@findAsync', data});
+          },
+          '@add'({row}){
+            reacteor.call('insert', m, row);
+          },
+          '@del'({id}){
+            reacteor.call('remove', m, id);
+          },
+          '@upd'({row}){
+            reacteor.call('update', m, row);
+          }
         },
         reducers: {
           '@getAllAsync'(state, {data}){
@@ -48,60 +68,47 @@ export function createReacteor(opt = {}) {
             state.data[index] = {...state.data[index], ...fields};
             return {...state};
           }
+        },
+        subscriptions: {
+          setup({ dispatch }) {
+            reacteor.subscribe(m);
+            if (i === 0) {
+              reacteor.get = function (collection) {
+                let type = collection===m? '@getAll':collection+'/@getAll';
+                dispatch({type});
+              };
+              reacteor.find = function (collection) {
+                let type = collection===m? '@find':collection+'/@find';
+                dispatch({type});
+              };
+              reacteor.insert = function (collection, row) {
+                let type = collection===m? '@add':collection+'/@add';
+                dispatch({type, row});
+              };
+              reacteor.remove = function (collection, id) {
+                let type = collection===m? '@del':collection+'/@del';
+                dispatch({type, id});
+              };
+              reacteor.update = function (collection, row) {
+                let type = collection===m? '@upd':collection+'/@upd';
+                dispatch({type, row});
+              };
+              reacteor.ddp.on("added", ({collection, id, fields}) => {
+                if (app._store.getState()[collection].loaded)
+                  dispatch({type: '@addAsync', row: {_id: id, ...fields}});
+              });
+              reacteor.ddp.on('removed', ({id}) => {
+                dispatch({type: '@delAsync', id});
+              });
+              reacteor.ddp.on('changed', ({id, fields}) => {
+                dispatch({type: '@updAsync', id, fields});
+              });
+            }
+          }
         }
       };
       app.model(model);
-      reacteor.subscribe(m);
     });
-  };
-
-  reacteor.listen = function(app) {
-    let {dispatch} = app._store;
-    reacteor.ddp.on("added", ({collection, id, fields}) => {
-      if (app._store.getState()[collection].loaded)
-        dispatch({type: collection+'/@addAsync', row: {_id: id, ...fields}});
-    });
-    reacteor.ddp.on('removed', ({collection, id}) => {
-      dispatch({type: collection+'/@delAsync', id});
-    });
-    reacteor.ddp.on('changed', ({collection, id, fields}) => {
-      dispatch({type: collection+'/@updAsync', id, fields});
-    });
-  };
-
-  reacteor.onReacteor = function() {
-    let onAction = ({ getState }) => (next) => (action) => {
-      let _action = action.type.split('/');
-      let namespace = _action[0];
-      let type = _action[1];
-      if (_action.length===2) {
-        switch (type) {
-          case '@getAll':
-            reacteor.call('getAll', namespace).then(data=>{
-              next({type: namespace+'/@getAllAsync', data});
-            });
-            break;
-          case '@find':
-            reacteor.call('find', namespace, action.query).then(data=>{
-              next({type: namespace+'/@findAsync', data});
-            });
-            break;
-          case '@add':
-            reacteor.call('insert', namespace, action.row);
-            break;
-          case '@del':
-            reacteor.call('remove', namespace, action.id);
-            break;
-          case '@upd':
-            reacteor.call('update', namespace, action.row);
-            break;
-        }
-      }
-      next(action);
-    };
-    return {
-      onAction
-    };
   };
 
   return reacteor;

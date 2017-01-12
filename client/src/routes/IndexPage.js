@@ -2,66 +2,45 @@ import React, { Component, PropTypes } from 'react';
 import { connect } from 'dva';
 import { Link } from 'dva/router';
 import TodoItem from '../components/TodoItem';
+import reacteor from '../common/reacteor';
 
 class IndexPage extends Component {
 
   constructor(props){
     super(props);
-    props.dispatch({
-      type: 'todo/@getAll'
-    });
+    reacteor.get('todo');
     this.state = {
       filter: 'All'
     }
   }
 
   addTask = (v) => {
-    let {dispatch} = this.props;
-    dispatch({
-      type: 'todo/@add',
-      row: {
-        text: v,
-        completed: false
-      }
-    })
+    reacteor.insert('todo', {
+      text: v,
+      completed: false
+    });
   };
 
   delTask = (id) => {
-    let {dispatch} = this.props;
-    dispatch({
-      type: 'todo/@del',
-      id
-    })
+    reacteor.remove('todo',id);
   };
 
   updTask = (id, text) => {
-    let {dispatch} = this.props;
-    dispatch({
-      type: 'todo/@upd',
-      row: {
-        id,
-        text
-      }
+    reacteor.update('todo',{
+      id, text
     });
   };
 
   checkTask = (id, completed) => {
-    let {dispatch} = this.props;
-    dispatch({
-      type: 'todo/@upd',
-      row: {
-        id, completed
-      }
-    })
+    reacteor.update('todo',{
+      id, completed
+    });
   };
 
   clearCompleted = () => {
-    let {dispatch, todo} = this.props;
+    let {todo} = this.props;
     let id = todo.data.filter(v => (v.completed)).map(v => (v._id));
-    dispatch({
-      type: 'todo/@del',
-      id
-    })
+    reacteor.remove('todo',id);
   };
 
   render(){

@@ -8,7 +8,7 @@ import {onReacteor,createModels,listen} from './common/reacteor';
 const app = dva();
 
 // 2. Plugins
-app.use(onReacteor());
+// app.use();
 
 // 3. Model
 createModels(app, 'todo');
@@ -18,6 +18,3 @@ app.router(require('./router'));
 
 // 5. Start
 app.start('#root');
-
-// 6. Listen to Meteor backend callback
-listen(app);
